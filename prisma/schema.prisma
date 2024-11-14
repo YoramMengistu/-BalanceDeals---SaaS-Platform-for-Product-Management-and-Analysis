@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Tier {
+  FREE
+  BASIC
+  STANDARD
+  PREMIUM
+}
+
+model Product {
+ id               String             @id @default(uuid()) @db.Uuid
+  clerkUserId     String             @db.Text
+  name             String             @db.Text
+  url              String             @db.Text
+  description      String?            @db.Text
+  createdAt       DateTime           @default(now()) @db.Timestamptz
+  updatedAt       DateTime           @updatedAt @db.Timestamptz
+
+
+  productCustomization   ProductCustomization?
+  views            ProductView[]
+  countryDiscounts CountryGroupDiscount[]
+}
+
+
+model ProductCustomization {
+  id               String   @id @default(uuid()) @db.Uuid
+  classPrefix      String?  @db.Text
+  productId        String  @unique @db.Uuid
+  locationMessage  String  @default("Hey! It looks like you are from <b>{country}</b>. We support Parity Purchasing Power, so if you need it, use code <b>“{coupon}”</b> to get <b>{discount}%</b> off.")
+  backgroundColor  String  @default("hsl(193, 82%, 31%)") @db.Text
+  textColor        String  @default("hsl(0, 0%, 100%)") @db.Text
+  fontSize         String  @default("1rem") @db.Text
+  bannerContainer  String  @default("body") @db.Text
+  isSticky         Boolean @default(true)
+  createdAt        DateTime @default(now()) @db.Timestamptz
+  updatedAt        DateTime @updatedAt @db.Timestamptz
+
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductView {
+  id        String   @id @default(uuid())
+  productId String
+  countryId String?
+  visitedAt DateTime @default(now()) @db.Timestamp(6)
+  
+  product   Product @relation(fields: [productId], references: [id])
+  country   Country? @relation(fields: [countryId], references: [id])
+
+  @@index([productId])
+  @@index([countryId])
+}
+
+model Country {
+  id             String  @id @default(uuid())
+  name           String  @unique
+  code           String  @unique
+  countryGroupId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  countryGroup  CountryGroup @relation(fields: [countryGroupId], references: [id])
+  productViews  ProductView[]
+}
+
+model CountryGroup {
+  id                        String                  @id @default(uuid()) @db.Uuid
+  name                      String                  @unique @db.Text
+  recommendedDiscountPercentage Float?
+  createdAt                DateTime                @default(now()) @db.Timestamptz
+  updatedAt                DateTime                @updatedAt @db.Timestamptz
+  countries                Country[]
+  countryGroupDiscounts     CountryGroupDiscount[]
+}
+
+model CountryGroupDiscount {
+  countryGroupId String @db.Uuid
+  productId      String @db.Uuid
+  coupon         String
+  discountPercentage Float
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
+
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  countryGroup   CountryGroup @relation(fields: [countryGroupId], references: [id], onDelete: Cascade)
+
+  @@id([countryGroupId, productId])
+}
+
+
+model UserSubscription {
+  id                      String   @id @default(uuid()) @db.Uuid
+  clerkUserId            String   @unique @db.Text
+  stripeSubscriptionItemId String?
+  stripeSubscriptionId    String?
+  stripeCustomerId        String?
+tier                    Tier
+  createdAt              DateTime @default(now()) @db.Timestamptz
+  updatedAt              DateTime @updatedAt @db.Timestamptz
+}
